@@ -1,0 +1,46 @@
+---
+- name: Deploy VM from template
+  hosts: "{{ new_ip }}"
+  become: false
+  gather_facts: false
+  collections:
+    - community.vmware
+
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
+  pre_tasks:
+      - include_vars: vars.yml
+
+  tasks:
+    - name: Create VM from template
+      vmware_guest:
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        datacenter: "{{ vcenter_datacenter }}"
+        validate_certs: "{{ vcenter_validate_certs }}"
+        cluster: "{{ vcenter_cluster }}"
+        name: "{{ vm_name }}"
+        folder: "{{ vcenter_destination_folder }}"
+        template: "{{ vm_template }}"
+        state: "{{ vm_state }}"
+
+    - name: Wait for new server to boot - 60 seconds
+      pause:
+        seconds: 60
+
+    - name: Backup existing network configuration
+      command:
+        cp /etc/sysconfig/network-scripts/{{ net_file }} /etc/sysconfig/network-scripts/{{ net_file }}.bak
+
+    - name: Update network configuration with new IP
+      replace:
+        path: /etc/sysconfig/network-scripts/{{ net_file }}
+        regexp: 'IPADDR={{ old_ip }}'
+        replace: 'IPADDR={{ new_ip }}'
+
+    - name: Restart network service
+      service:
+        name: NetworkManager
+        state: restarted

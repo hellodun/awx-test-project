@@ -1,0 +1,36 @@
+---
+- name: Deploy VM from template
+  hosts: all
+  become: true
+  gather_facts: false
+
+  pre_tasks:
+    - include_vars: vars.yml
+
+  tasks:
+    - name: Backup existing network configuration
+      command:
+        cp /etc/sysconfig/network-scripts/{{ net_file }} /etc/sysconfig/network-scripts/{{ net_file }}.bak
+
+    - name: Update network configuration with new IP
+      replace:
+        path: /etc/sysconfig/network-scripts/{{ net_file }}
+        regexp: 'IPADDR={{ old_ip }}'
+        replace: 'IPADDR={{ new_ip }}'
+
+    - name: Restart network service
+      service:
+        name: NetworkManager
+        state: restarted
+    
+    - name: Delete {{ old_ip }} from network interface
+      command: 
+        ip addr del {{ old_ip }}/24 dev {{ conn_name }}
+
+    - name: Restart network service
+      service:
+        name: NetworkManager
+        state: restarted
+
+    # - name: Reboot server to release {{ old_ip }}
+    #   reboot:

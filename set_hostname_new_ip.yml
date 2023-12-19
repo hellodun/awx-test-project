@@ -1,0 +1,25 @@
+---
+- name: Set hostname and remove {{ old_ip }}
+  hosts: "{{ new_ip }}"
+  become: false
+  gather_facts: false
+
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
+  pre_tasks:
+      - include_vars: vars.yml
+
+  tasks:    
+    - name: Delete {{ old_ip }} from network interface
+      command: 
+        ip addr del {{ old_ip }}/24 dev {{ conn_name }}
+
+    - name: Restart network service
+      service:
+        name: NetworkManager
+        state: restarted
+
+    - name: Set VM hostname
+      hostname:
+        name: "{{ ip_hostname }}"
